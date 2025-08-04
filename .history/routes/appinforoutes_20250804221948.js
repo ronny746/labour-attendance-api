@@ -1,0 +1,12 @@
+const express = require('express');
+const router = express.Router();
+const appInfoController = require('../controllers/appinfo.controller');
+const { verifyToken } = require('../middlewares/auth.middleware');
+
+// Public route
+router.get('/', appInfoController.getAppInfo);
+
+// Admin-protected update route
+router.put('/', verifyToken, appInfoController.updateAppInfo);
+
+module.exports = router;
