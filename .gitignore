@@ -1,0 +1,37 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDEs & editors
+.vscode/
+.idea/
+*.swp
+
+# Build or dist
+dist/
+build/
+
+# Uploaded images (optional, if not using cloud)
+uploads/
+temp/
+
+# Coverage / test reports
+coverage/
+*.lcov
+
+# Optional database dump
+dump/
