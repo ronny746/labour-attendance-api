@@ -26,7 +26,6 @@ exports.createProject = async (req, res) => {
 exports.getAllProjects = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    console.log(user.mobile);
     if (!user || !user.mobile) {
       return sendError(res, 'Invalid user or mobile not found', null, 400);
     }
@@ -59,7 +58,7 @@ exports.getProjectById = async (req, res) => {
 // ✅ Update project by ID if owned
 exports.updateProject = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id);
 
     const updated = await Project.findOneAndUpdate(
       { _id: req.params.id, hajriMobile: user.mobile },
@@ -77,7 +76,7 @@ exports.updateProject = async (req, res) => {
 // ✅ Delete project by ID if owned
 exports.deleteProject = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id);
 
     const deleted = await Project.findOneAndDelete({
       _id: req.params.id,

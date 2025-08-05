@@ -6,7 +6,7 @@ exports.sendOtp = async (req, res) => {
   try {
     const { mobile } = req.body;
     // const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otp = '123456';
+
     let user = await User.findOne({ mobile });
     if (!user) {
       user = new User({ mobile, lastOtp: otp });

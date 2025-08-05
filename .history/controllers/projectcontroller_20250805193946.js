@@ -26,7 +26,7 @@ exports.createProject = async (req, res) => {
 exports.getAllProjects = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    console.log(user.mobile);
+co
     if (!user || !user.mobile) {
       return sendError(res, 'Invalid user or mobile not found', null, 400);
     }
