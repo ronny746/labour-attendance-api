@@ -6,7 +6,6 @@ const labourSchema = new mongoose.Schema({
   degination: { type: String, required: true },
   ratePerShift: { type: Number, required: true },
   gender: { type: String, enum: ['Male', 'Female', 'Other'], required: true },
-  address: { type: String, required: true },
   photoUrl: { type: String, required: true },
   mobile: { type: String, required: true },
   aadhaar: { type: Number },

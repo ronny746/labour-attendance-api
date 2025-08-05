@@ -88,7 +88,7 @@ exports.getLabourSalary = async (req, res) => {
       attendanceByDate[dateKey][entry.type] = entry.timestamp;
     });
 
-    
+    console.log(attendanceByDate);
 
     let totalShifts = 0;
     const dayRecords = [];
@@ -133,7 +133,7 @@ exports.getLabourSalary = async (req, res) => {
       labour: {
         name: labour.name,
         mobile: labour.mobile,
-        ratePerShift: labour.ratePerShift
+        rate: labour.ratePerShift
       },
       totalShifts,
       totalSalary,

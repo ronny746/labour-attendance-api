@@ -6,29 +6,6 @@ exports.markAttendance = async (req, res) => {
   try {
     const { labourId, projectId, type, location } = req.body;
 
-    // Get today's date range
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
-
-    // Check if same type already exists today
-    const existing = await Attendance.findOne({
-      labourId,
-      type,
-      timestamp: { $gte: startOfDay, $lte: endOfDay }
-    });
-
-    if (existing) {
-      return sendError(
-        res,
-        `You already marked a ${type} today.`,
-        null,
-        400
-      );
-    }
-
     const attendance = new Attendance({ labourId, projectId, type, location });
     await attendance.save();
 

@@ -88,8 +88,6 @@ exports.getLabourSalary = async (req, res) => {
       attendanceByDate[dateKey][entry.type] = entry.timestamp;
     });
 
-    
-
     let totalShifts = 0;
     const dayRecords = [];
 
@@ -106,7 +104,7 @@ exports.getLabourSalary = async (req, res) => {
 
         const diffInMs = checkOut - checkIn;
         const hoursWorked = diffInMs / (1000 * 60 * 60); // ms to hours
-
+ console.log(hoursWorked);
         // Determine shift count
         let shift = 0;
         if (hoursWorked >= 8.75 && hoursWorked <= 9.25) shift = 1;
@@ -127,13 +125,13 @@ exports.getLabourSalary = async (req, res) => {
       }
     }
 
-    const totalSalary = totalShifts * labour.ratePerShift;
+    const totalSalary = totalShifts * labour.rate;
 
     sendSuccess(res, 'Shift-based salary calculated', {
       labour: {
         name: labour.name,
         mobile: labour.mobile,
-        ratePerShift: labour.ratePerShift
+        rate: labour.rate
       },
       totalShifts,
       totalSalary,

@@ -88,8 +88,6 @@ exports.getLabourSalary = async (req, res) => {
       attendanceByDate[dateKey][entry.type] = entry.timestamp;
     });
 
-    
-
     let totalShifts = 0;
     const dayRecords = [];
 
@@ -97,7 +95,8 @@ exports.getLabourSalary = async (req, res) => {
       if (log['check-in'] && log['check-out']) {
         const checkIn = new Date(log['check-in']);
         const checkOut = new Date(log['check-out']);
-
+   console.log(checkIn);
+   
         const graceIn = new Date(checkIn);
         graceIn.setMinutes(graceIn.getMinutes() - 15);
 
@@ -127,13 +126,13 @@ exports.getLabourSalary = async (req, res) => {
       }
     }
 
-    const totalSalary = totalShifts * labour.ratePerShift;
+    const totalSalary = totalShifts * labour.rate;
 
     sendSuccess(res, 'Shift-based salary calculated', {
       labour: {
         name: labour.name,
         mobile: labour.mobile,
-        ratePerShift: labour.ratePerShift
+        rate: labour.rate
       },
       totalShifts,
       totalSalary,
