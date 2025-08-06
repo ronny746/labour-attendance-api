@@ -54,23 +54,21 @@ exports.getLaboursByProject = async (req, res) => {
       let hoursWorked = 0;
       let shift = 0;
 
-      if (log?.['check-in']) {
+      if (log?.['check-in'] && log?.['check-out']) {
         checkIn = new Date(log['check-in']);
-        if (log?.['check-out']) {
-          checkOut = new Date(log['check-out']);
-          const diffMs = checkOut - checkIn;
-          hoursWorked = diffMs / (1000 * 60 * 60); // in hours
+        checkOut = new Date(log['check-out']);
+        const diffMs = checkOut - checkIn;
+        hoursWorked = diffMs / (1000 * 60 * 60); // in hours
 
-          if (hoursWorked >= 8.75 && hoursWorked <= 9.25) shift = 1;
-          else if (hoursWorked > 9.25 && hoursWorked <= 12.5) shift = 1.5;
-          else if (hoursWorked > 12.5 && hoursWorked <= 15) shift = 2;
-          else if (hoursWorked > 15 && hoursWorked <= 18) shift = 3;
-          else if (hoursWorked > 18) shift = 4;
-        }
+        // Grace logic not needed here as times are already within the day
+        if (hoursWorked >= 8.75 && hoursWorked <= 9.25) shift = 1;
+        else if (hoursWorked > 9.25 && hoursWorked <= 12.5) shift = 1.5;
+        else if (hoursWorked > 12.5 && hoursWorked <= 15) shift = 2;
+        else if (hoursWorked > 15 && hoursWorked <= 18) shift = 3;
+        else if (hoursWorked > 18) shift = 4;
 
         status = 'Present';
       }
-
 
       return {
         ...labour.toObject(),
@@ -154,7 +152,7 @@ exports.getLabourSalary = async (req, res) => {
       attendanceByDate[dateKey][entry.type] = entry.timestamp;
     });
 
-
+    
 
     let totalShifts = 0;
     const dayRecords = [];

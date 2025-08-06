@@ -1,8 +1,7 @@
 const Labour = require('../models/labourmodel');
 const Attendance = require('../models/attendancemodel');
-const Project = require('../models/projectmodel');
 const { sendSuccess, sendError } = require('../utils/response');
-const User = require('../models/usermodel');
+
 // Add Labour
 exports.addLabour = async (req, res) => {
   try {
@@ -54,23 +53,21 @@ exports.getLaboursByProject = async (req, res) => {
       let hoursWorked = 0;
       let shift = 0;
 
-      if (log?.['check-in']) {
+      if (log?.['check-in'] && log?.['check-out']) {
         checkIn = new Date(log['check-in']);
-        if (log?.['check-out']) {
-          checkOut = new Date(log['check-out']);
-          const diffMs = checkOut - checkIn;
-          hoursWorked = diffMs / (1000 * 60 * 60); // in hours
+        checkOut = new Date(log['check-out']);
+        const diffMs = checkOut - checkIn;
+        hoursWorked = diffMs / (1000 * 60 * 60); // in hours
 
-          if (hoursWorked >= 8.75 && hoursWorked <= 9.25) shift = 1;
-          else if (hoursWorked > 9.25 && hoursWorked <= 12.5) shift = 1.5;
-          else if (hoursWorked > 12.5 && hoursWorked <= 15) shift = 2;
-          else if (hoursWorked > 15 && hoursWorked <= 18) shift = 3;
-          else if (hoursWorked > 18) shift = 4;
-        }
+        // Grace logic not needed here as times are already within the day
+        if (hoursWorked >= 8.75 && hoursWorked <= 9.25) shift = 1;
+        else if (hoursWorked > 9.25 && hoursWorked <= 12.5) shift = 1.5;
+        else if (hoursWorked > 12.5 && hoursWorked <= 15) shift = 2;
+        else if (hoursWorked > 15 && hoursWorked <= 18) shift = 3;
+        else if (hoursWorked > 18) shift = 4;
 
         status = 'Present';
       }
-
 
       return {
         ...labour.toObject(),
@@ -154,7 +151,7 @@ exports.getLabourSalary = async (req, res) => {
       attendanceByDate[dateKey][entry.type] = entry.timestamp;
     });
 
-
+    
 
     let totalShifts = 0;
     const dayRecords = [];
@@ -213,34 +210,49 @@ exports.getLabourSalary = async (req, res) => {
 };
 
 
-
+const Labour = require('../models/labourmodel');
+const Project = require('../models/projectmodel');
+const User = require('../models/usermodel');
+const { sendSuccess, sendError } = require('../utils/response');
 
 exports.checkLabourInActiveProject = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
     const { labourId } = req.params;
 
-    // 1. Get current user
+    // 1. Get user and their mobile
     const user = await User.findById(userId);
     if (!user || !user.mobile) {
       return sendError(res, 'Invalid user', null, 400);
     }
 
-    // 2. Get labour
+    // 2. Get labour and their assigned project
     const labour = await Labour.findById(labourId);
     if (!labour || !labour.projectId) {
       return sendError(res, 'Labour or project not found', null, 404);
     }
 
-    // 3. Check if the project is active & belongs to the current Hajri Master
+    // 3. Get the project and validate owner + status + date
     const project = await Project.findOne({
       _id: labour.projectId,
       hajriMobile: user.mobile,
       status: true,
-      validUpto: { $gte: new Date() }
+      validUpto: { $gte: new Date() } // Not expired
     });
 
-    if (!project) {
+    if (project) {
+      return sendSuccess(res, 'Labour is part of active project', {
+        labour: {
+          id: labour._id,
+          name: labour.name,
+        },
+        project: {
+          id: project._id,
+          name: project.projectName,
+        },
+        isActive: true,
+      }, 200);
+    } else {
       return sendSuccess(res, 'Labour is not part of any active project', {
         labour: {
           id: labour._id,
@@ -249,43 +261,6 @@ exports.checkLabourInActiveProject = async (req, res) => {
         isActive: false,
       }, 200);
     }
-
-    // 4. Check today's attendance for this labour
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const todayLogs = await Attendance.find({
-      labourId: labour._id,
-      projectId: project._id,
-      timestamp: { $gte: startOfDay, $lte: endOfDay }
-    });
-
-    const checkInLog = todayLogs.find(log => log.type === 'check-in');
-    const checkOutLog = todayLogs.find(log => log.type === 'check-out');
-
-    let nextAction = 'check-in';
-    if (checkInLog && !checkOutLog) nextAction = 'check-out';
-    else if (checkInLog && checkOutLog) nextAction = 'completed';
-
-    return sendSuccess(res, 'Labour and attendance status fetched', {
-      labour: {
-        id: labour._id,
-        name: labour.name,
-      },
-      project: {
-        id: project._id,
-        name: project.projectName,
-      },
-      isActive: true,
-      todayAttendance: {
-        checkIn: checkInLog?.timestamp,
-        checkOut: checkOutLog?.timestamp,
-        nextAction: nextAction
-      }
-    }, 200);
-
   } catch (err) {
     sendError(res, 'Check failed', err.message, 500);
   }
