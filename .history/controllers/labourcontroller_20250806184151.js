@@ -234,12 +234,12 @@ exports.checkLabourInActiveProject = async (req, res) => {
 
     // 3. Check if the project is active & belongs to the current Hajri Master
     const project = await Project.findOne({
-      _id: labour.projectId,
+      id: labour.projectId,
       hajriMobile: user.mobile,
       status: true,
       validUpto: { $gte: new Date() }
     });
-
+    console.log(project);
 
     if (!project) {
       return sendSuccess(res, 'Labour is not part of any active project', {

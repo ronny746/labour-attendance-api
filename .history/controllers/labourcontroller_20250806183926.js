@@ -240,7 +240,6 @@ exports.checkLabourInActiveProject = async (req, res) => {
       validUpto: { $gte: new Date() }
     });
 
-
     if (!project) {
       return sendSuccess(res, 'Labour is not part of any active project', {
         labour: {

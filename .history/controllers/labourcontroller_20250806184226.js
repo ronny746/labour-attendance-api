@@ -237,9 +237,9 @@ exports.checkLabourInActiveProject = async (req, res) => {
       _id: labour.projectId,
       hajriMobile: user.mobile,
       status: true,
-      validUpto: { $gte: new Date() }
+      // validUpto: { $gte: new Date() }
     });
-
+    console.log(user.mobile);
 
     if (!project) {
       return sendSuccess(res, 'Labour is not part of any active project', {

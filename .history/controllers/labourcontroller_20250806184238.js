@@ -236,10 +236,10 @@ exports.checkLabourInActiveProject = async (req, res) => {
     const project = await Project.findOne({
       _id: labour.projectId,
       hajriMobile: user.mobile,
-      status: true,
-      validUpto: { $gte: new Date() }
+      // status: true,
+      // validUpto: { $gte: new Date() }
     });
-
+    console.log(project);
 
     if (!project) {
       return sendSuccess(res, 'Labour is not part of any active project', {
