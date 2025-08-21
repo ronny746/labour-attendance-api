@@ -2,7 +2,7 @@ const Attendance = require('../models/attendancemodel');
 const { sendSuccess, sendError } = require('../utils/response');
 const User = require('../models/usermodel');
 const Project = require('../models/projectmodel');
-const Labour = require('../models/labourmodel');
+
 // Mark attendance
 exports.markAttendance = async (req, res) => {
   try {

@@ -1,8 +1,6 @@
 const Attendance = require('../models/attendancemodel');
 const { sendSuccess, sendError } = require('../utils/response');
-const User = require('../models/usermodel');
-const Project = require('../models/projectmodel');
-const Labour = require('../models/labourmodel');
+
 // Mark attendance
 exports.markAttendance = async (req, res) => {
   try {
@@ -115,96 +113,61 @@ exports.getTodayCheckInsByProject = async (req, res) => {
 // Get attendance report for all employees under a project (hazri master) date-wise
 exports.getAttendanceReportByProject = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user || !user.mobile) {
-      return sendError(res, 'Invalid user or mobile not found', null, 400);
+    const { projectId, startDate, endDate } = req.query;
+
+    if (!projectId) {
+      return sendError(res, 'Project ID is required', null, 400);
     }
 
-    // Fetch all projects under this hazri master
-    const projects = await Project.find({ hajriMobile: user.mobile }).sort({ createdAt: -1 });
-    if (!projects.length) {
-      return sendSuccess(res, 'No projects found for this hazri master', [], 200);
-    }
-
-    // Date filter from query
-    let { startDate, endDate } = req.query;
-    if (!startDate) startDate = new Date().toISOString().slice(0, 10);
-    if (!endDate) endDate = startDate;
-
-    const from = new Date(startDate);
+    // Date range filter
+    const from = startDate ? new Date(startDate) : new Date();
     from.setHours(0, 0, 0, 0);
-    const to = new Date(endDate);
+
+    const to = endDate ? new Date(endDate) : new Date();
     to.setHours(23, 59, 59, 999);
 
-    const report = [];
+    // Fetch all attendance records for this project in the date range
+    const records = await Attendance.find({
+      projectId,
+      timestamp: { $gte: from, $lte: to }
+    })
+      .populate('labourId')
+      .sort({ timestamp: 1 });
 
-    for (const project of projects) {
-      const labours = await Labour.find({ projectId: project._id }).sort({ name: 1 });
+    // Group by date -> employee
+    const report = {};
 
-      const records = await Attendance.find({
-        projectId: project._id,
-        timestamp: { $gte: from, $lte: to }
-      })
-        .populate('labourId')
-        .sort({ timestamp: 1 });
+    records.forEach((entry) => {
+      const date = entry.timestamp.toISOString().slice(0, 10); // YYYY-MM-DD
+      const labour = entry.labourId;
+      const id = labour._id.toString();
 
-      const projectReport = {};
-      records.forEach((entry) => {
-        const dateStr = entry.timestamp.toISOString().slice(0, 10);
-        const labour = entry.labourId;
-        const id = labour._id.toString();
+      if (!report[date]) report[date] = {};
 
-        if (!projectReport[dateStr]) projectReport[dateStr] = {};
-
-        if (!projectReport[dateStr][id]) {
-          projectReport[dateStr][id] = {
-            name: labour.name,
-            mobile: labour.mobile,
-            designation: labour.designation,
-            checkIn: null,
-            checkOut: null
-          };
-        }
-
-        if (entry.type === 'check-in') {
-          projectReport[dateStr][id].checkIn = entry.timestamp.toLocaleTimeString();
-        } else if (entry.type === 'check-out') {
-          projectReport[dateStr][id].checkOut = entry.timestamp.toLocaleTimeString();
-        }
-      });
-
-      // Build response for each date in range
-      const allDates = [];
-      for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-        allDates.push(new Date(d));
+      if (!report[date][id]) {
+        report[date][id] = {
+          name: labour.name,
+          mobile: labour.mobile,
+          checkIn: null,
+          checkOut: null
+        };
       }
 
-      const formattedReport = allDates.map((d) => {
-        const dateStr = d.toISOString().slice(0, 10);
-        const employees = labours.map((labour) => {
-          const id = labour._id.toString();
-          return projectReport[dateStr] && projectReport[dateStr][id]
-            ? projectReport[dateStr][id]
-            : {
-                name: labour.name,
-                mobile: labour.mobile,
-                designation: labour.designation,
-                checkIn: null,
-                checkOut: null
-              };
-        });
-        return { date: dateStr, employees };
-      });
+      if (entry.type === 'check-in') {
+        report[date][id].checkIn = entry.timestamp.toLocaleTimeString();
+      } else if (entry.type === 'check-out') {
+        report[date][id].checkOut = entry.timestamp.toLocaleTimeString();
+      }
+    });
 
-      report.push({
-        projectId: project._id,
-        projectName: project.projectName,
-        attendance: formattedReport
-      });
-    }
+    // Convert report object to array format
+    const response = Object.keys(report).map((date) => ({
+      date,
+      employees: Object.values(report[date])
+    }));
 
-    sendSuccess(res, 'Attendance report fetched successfully', report, 200);
+    sendSuccess(res, 'Attendance report fetched successfully', response, 200);
   } catch (err) {
-    sendError(res, 'Failed to fetch attendance reports', err.message, 500);
+    sendError(res, 'Failed to fetch attendance report', err.message, 500);
   }
 };

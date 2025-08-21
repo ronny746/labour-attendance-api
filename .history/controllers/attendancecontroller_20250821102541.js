@@ -2,7 +2,6 @@ const Attendance = require('../models/attendancemodel');
 const { sendSuccess, sendError } = require('../utils/response');
 const User = require('../models/usermodel');
 const Project = require('../models/projectmodel');
-const Labour = require('../models/labourmodel');
 // Mark attendance
 exports.markAttendance = async (req, res) => {
   try {
@@ -115,32 +114,32 @@ exports.getTodayCheckInsByProject = async (req, res) => {
 // Get attendance report for all employees under a project (hazri master) date-wise
 exports.getAttendanceReportByProject = async (req, res) => {
   try {
+    // Fetch the current hazri master (logged-in user)
     const user = await User.findById(req.user.id);
     if (!user || !user.mobile) {
       return sendError(res, 'Invalid user or mobile not found', null, 400);
     }
 
     // Fetch all projects under this hazri master
-    const projects = await Project.find({ hajriMobile: user.mobile }).sort({ createdAt: -1 });
+    const projects = await Project.find({ hajriMobile: user.mobile })
+      .sort({ createdAt: -1 });
+
     if (!projects.length) {
       return sendSuccess(res, 'No projects found for this hazri master', [], 200);
     }
 
-    // Date filter from query
-    let { startDate, endDate } = req.query;
-    if (!startDate) startDate = new Date().toISOString().slice(0, 10);
-    if (!endDate) endDate = startDate;
-
-    const from = new Date(startDate);
+    // Optional date range from query
+    const { startDate, endDate } = req.query;
+    const from = startDate ? new Date(startDate) : new Date();
     from.setHours(0, 0, 0, 0);
-    const to = new Date(endDate);
+
+    const to = endDate ? new Date(endDate) : new Date();
     to.setHours(23, 59, 59, 999);
 
     const report = [];
 
+    // Loop through projects and fetch attendance
     for (const project of projects) {
-      const labours = await Labour.find({ projectId: project._id }).sort({ name: 1 });
-
       const records = await Attendance.find({
         projectId: project._id,
         timestamp: { $gte: from, $lte: to }
@@ -148,62 +147,44 @@ exports.getAttendanceReportByProject = async (req, res) => {
         .populate('labourId')
         .sort({ timestamp: 1 });
 
+      // Group by date -> employee
       const projectReport = {};
       records.forEach((entry) => {
-        const dateStr = entry.timestamp.toISOString().slice(0, 10);
+        const date = entry.timestamp.toISOString().slice(0, 10);
         const labour = entry.labourId;
         const id = labour._id.toString();
 
-        if (!projectReport[dateStr]) projectReport[dateStr] = {};
+        if (!projectReport[date]) projectReport[date] = {};
 
-        if (!projectReport[dateStr][id]) {
-          projectReport[dateStr][id] = {
-            name: labour.name,
+        if (!projectReport[date][id]) {
+          projectReport[date][id] = {
+            name: labour.,
             mobile: labour.mobile,
-            designation: labour.designation,
             checkIn: null,
             checkOut: null
           };
         }
 
         if (entry.type === 'check-in') {
-          projectReport[dateStr][id].checkIn = entry.timestamp.toLocaleTimeString();
+          projectReport[date][id].checkIn = entry.timestamp.toLocaleTimeString();
         } else if (entry.type === 'check-out') {
-          projectReport[dateStr][id].checkOut = entry.timestamp.toLocaleTimeString();
+          projectReport[date][id].checkOut = entry.timestamp.toLocaleTimeString();
         }
       });
 
-      // Build response for each date in range
-      const allDates = [];
-      for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-        allDates.push(new Date(d));
-      }
-
-      const formattedReport = allDates.map((d) => {
-        const dateStr = d.toISOString().slice(0, 10);
-        const employees = labours.map((labour) => {
-          const id = labour._id.toString();
-          return projectReport[dateStr] && projectReport[dateStr][id]
-            ? projectReport[dateStr][id]
-            : {
-                name: labour.name,
-                mobile: labour.mobile,
-                designation: labour.designation,
-                checkIn: null,
-                checkOut: null
-              };
-        });
-        return { date: dateStr, employees };
-      });
+      const formattedReport = Object.keys(projectReport).map((date) => ({
+        date,
+        employees: Object.values(projectReport[date])
+      }));
 
       report.push({
         projectId: project._id,
-        projectName: project.projectName,
+        projectName: project.name,
         attendance: formattedReport
       });
     }
 
-    sendSuccess(res, 'Attendance report fetched successfully', report, 200);
+    sendSuccess(res, 'Attendance report for all projects fetched', report, 200);
   } catch (err) {
     sendError(res, 'Failed to fetch attendance reports', err.message, 500);
   }

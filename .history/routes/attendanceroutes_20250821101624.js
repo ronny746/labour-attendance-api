@@ -7,6 +7,6 @@ router.post('/mark', verifyToken, attendanceController.markAttendance);
 router.get('/', verifyToken, attendanceController.getAttendanceLogs);
 
 router.get('/today-checkins/:projectId', verifyToken, attendanceController.getTodayCheckInsByProject);
-router.get('/getAttendanceReportByProject', verifyToken, attendanceController.getAttendanceReportByProject);
+router.get('/getAttendanceReportByProject/:projectId', verifyToken, attendanceController.getAttendanceReportByProject);
 
 module.exports = router;
