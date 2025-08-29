@@ -4,7 +4,6 @@ const User = require('../models/usermodel');
 const Project = require('../models/projectmodel');
 const Labour = require('../models/labourmodel');
 // Mark attendance
-// controller.js
 exports.markAttendance = async (req, res) => {
   try {
     const { labourId, projectId, type, location } = req.body;
@@ -12,99 +11,91 @@ exports.markAttendance = async (req, res) => {
       return sendError(res, 'Missing labourId or type', null, 400);
     }
 
-    // normalize incoming type to match schema enum
-    const raw = String(type).toLowerCase().trim();
-    let t;
-    if (raw === 'checkin' || raw === 'check-in') t = 'check-in';
-    else if (raw === 'checkout' || raw === 'check-out') t = 'check-out';
-    else {
-      return sendError(res, 'Invalid attendance type', null, 400);
-    }
+    const t = type.toString().toLowerCase().trim();
 
-    // today's range
+    // Get today's date range
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
+
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    const MIN_MINUTES = 30;
-
-    // ---- CHECK-IN ----
-    if (t === 'check-in') {
+    // Handle checkin
+    if (t === 'checkin') {
       const existingCheckin = await Attendance.findOne({
         labourId,
-        type: 'check-in',
+        type: 'checkin',
         timestamp: { $gte: startOfDay, $lte: endOfDay }
-      }).sort({ timestamp: -1 });
+      });
 
       if (existingCheckin) {
-        return sendError(res, 'You already checked in today.', null, 400);
+        return sendError(res, `You already marked a checkin today.`, null, 400);
       }
 
-      const attendance = new Attendance({
-        labourId,
-        projectId,
-        type: 'check-in',
-        location,
-        timestamp: new Date()
-      });
+      const attendance = new Attendance({ labourId, projectId, type: 'checkin', location });
       await attendance.save();
       return sendSuccess(res, 'Check-in marked successfully', attendance, 201);
     }
 
-    // ---- CHECK-OUT ----
-    if (t === 'check-out') {
-      // get latest check-in for today
-      const latestCheckin = await Attendance.findOne({
+    // Handle checkout
+    if (t === 'checkout') {
+      // ensure there is a checkin today
+      const checkin = await Attendance.findOne({
         labourId,
-        type: 'check-in',
+        type: 'checkin',
         timestamp: { $gte: startOfDay, $lte: endOfDay }
-      }).sort({ timestamp: -1 });
+      });
 
-      if (!latestCheckin) {
+      if (!checkin) {
         return sendError(res, 'You have not checked in today.', null, 400);
       }
 
-      // prevent multiple check-outs today
+      // prevent multiple checkouts
       const existingCheckout = await Attendance.findOne({
         labourId,
-        type: 'check-out',
+        type: 'checkout',
         timestamp: { $gte: startOfDay, $lte: endOfDay }
       });
+
       if (existingCheckout) {
-        return sendError(res, 'You already checked out today.', null, 400);
+        return sendError(res, 'You already marked a checkout today.', null, 400);
       }
 
-      const checkinMs = new Date(latestCheckin.timestamp).getTime();
-      if (isNaN(checkinMs)) {
-        return sendError(res, 'Unable to determine check-in time. Contact admin.', null, 500);
+      // enforce 30 minutes minimum between checkin and checkout
+      const checkinTime = (checkin.timestamp && checkin.timestamp instanceof Date)
+        ? checkin.timestamp.getTime()
+        : checkin.createdAt ? new Date(checkin.createdAt).getTime() : null;
+
+      const now = Date.now();
+      if (checkinTime) {
+        const diffMinutes = (now - checkinTime) / (1000 * 60);
+        if (diffMinutes < 30) {
+          return sendError(res, `You can checkout only after 30 minutes from check-in. Please wait ${Math.ceil(30 - diffMinutes)} more minute(s).`, null, 400);
+        }
       }
 
-      const nowMs = Date.now();
-      const diffMinutes = (nowMs - checkinMs) / (1000 * 60);
-
-      if (diffMinutes < MIN_MINUTES) {
-        const remaining = Math.ceil(MIN_MINUTES - diffMinutes);
-        return sendError(
-          res,
-          `You can checkout only after ${MIN_MINUTES} minutes from check-in. Please wait ${remaining} more minute(s).`,
-          null,
-          400
-        );
-      }
-
-      const attendance = new Attendance({
-        labourId,
-        projectId,
-        type: 'check-out',
-        location,
-        timestamp: new Date()
-      });
+      const attendance = new Attendance({ labourId, projectId, type: 'checkout', location });
       await attendance.save();
       return sendSuccess(res, 'Check-out marked successfully', attendance, 201);
     }
+
+    // Fallback for other types: prevent duplicate same type per day
+    const existing = await Attendance.findOne({
+      labourId,
+      type,
+      timestamp: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    if (existing) {
+      return sendError(res, `You already marked a ${type} today.`, null, 400);
+    }
+
+    const attendance = new Attendance({ labourId, projectId, type, location });
+    await attendance.save();
+
+    sendSuccess(res, 'Attendance marked successfully', attendance, 201);
   } catch (err) {
-    return sendError(res, 'Failed to mark attendance', err.message, 400);
+    sendError(res, 'Failed to mark attendance', err.message, 400);
   }
 };
 
