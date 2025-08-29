@@ -62,7 +62,7 @@ exports.markAttendance = async (req, res) => {
       }).sort({ timestamp: -1 });
 
       if (!latestCheckin) {
-        return sendError(res, 'You have not checked in today.', null, 200);
+        return sendError(res, 'You have not checked in today.', null, 400);
       }
 
       // prevent multiple check-outs today
@@ -72,7 +72,7 @@ exports.markAttendance = async (req, res) => {
         timestamp: { $gte: startOfDay, $lte: endOfDay }
       });
       if (existingCheckout) {
-        return sendError(res, 'You already checked out today.', null, 200);
+        return sendError(res, 'You already checked out today.', null, 400);
       }
 
       const checkinMs = new Date(latestCheckin.timestamp).getTime();
